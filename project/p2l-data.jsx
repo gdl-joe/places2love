@@ -15,8 +15,8 @@ const CATEGORIES = [
   // Kultur
   { id: 'Kirche',        label: 'Kirche/Kloster', emoji: '⛪',  group: 'Kultur' },
   { id: 'Burg',          label: 'Burg/Schloss',   emoji: '🏰',  group: 'Kultur' },
-  // Sonstiges
-  { id: 'Sonstiges',     label: 'Freie Kategorie',emoji: '📍',  group: 'Sonstige' },
+  // Stadtbild
+  { id: 'Stadtbild',     label: 'Stadtbild',      emoji: '🏙️', group: 'Kultur' },
 ];
 
 const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
@@ -83,7 +83,7 @@ const CAT_GRADIENTS = {
   Klettersteig:  'linear-gradient(160deg,#3a2a1a 0%,#6a4a2a 60%,#9a7a5a 100%)',
   Kirche:        'linear-gradient(160deg,#2a2a3a 0%,#4a4a6a 60%,#8a8aaa 100%)',
   Burg:          'linear-gradient(160deg,#3a2a1a 0%,#6a5a2a 60%,#9a8a5a 100%)',
-  Sonstiges:     'linear-gradient(160deg,#2a2a2a 0%,#4a4a4a 60%,#7a7a6a 100%)',
+  Stadtbild:     'linear-gradient(160deg,#1a1a2a 0%,#2a2a4a 60%,#5a5a7a 100%)',
 };
 
 // ─── Theme-Tokens ─────────────────────────────────────────────

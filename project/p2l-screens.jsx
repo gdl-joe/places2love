@@ -105,8 +105,8 @@ function ScreenLogin({ t, onAuth }) {
 
 // ─── PlaceCard ────────────────────────────────────────────────
 function PlaceCard({ p, t, onOpen }) {
-  const cat      = CATEGORY_MAP[p.category] || CATEGORY_MAP.Sonstiges;
-  const gradient = CAT_GRADIENTS[p.category] || CAT_GRADIENTS.Sonstiges;
+  const cat      = CATEGORY_MAP[p.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: place?.category || 'Ort' };
+  const gradient = CAT_GRADIENTS[p.category] || CAT_GRADIENTS.Stadtbild;
   const photoUrl = p.cover ? `./uploads/${p.cover}` : null;
 
   return (
@@ -287,8 +287,8 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
                   justifyContent:'center', color:t.muted }}>Lädt…</div>
   );
 
-  const cat      = CATEGORY_MAP[place.category] || CATEGORY_MAP.Sonstiges;
-  const gradient = CAT_GRADIENTS[place.category] || CAT_GRADIENTS.Sonstiges;
+  const cat      = CATEGORY_MAP[place.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: place?.category || 'Ort' };
+  const gradient = CAT_GRADIENTS[place.category] || CAT_GRADIENTS.Stadtbild;
   const heroUrl  = place.photos?.[0] ? `${cfg.uploadUrl}/${place.photos[0].path}` : null;
 
   const REVISIT_LABEL = { ja:'✅ Ja, unbedingt!', vielleicht:'🤔 Vielleicht', nein:'❌ Nein' };
@@ -297,11 +297,17 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    await uploadPhoto(file, place.id);
-    await loadPlaces();
-    const fresh = await apiFetch('/places.php?id=' + placeId);
-    if (fresh && !fresh.error) setPlace(fresh);
-    setUploading(false);
+    try {
+      const result = await uploadPhoto(file, place.id);
+      if (result?.error) throw new Error(result.error);
+      await loadPlaces();
+      const fresh = await apiFetch('/places.php?id=' + placeId);
+      if (fresh && !fresh.error) setPlace(fresh);
+    } catch (err) {
+      alert('Foto-Upload fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler'));
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleDeletePhoto(photoId) {
@@ -735,11 +741,6 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
               </Chip>
             ))}
           </div>
-          {form.category === 'Sonstiges' && (
-            <input value={form.custom_category}
-                   onChange={e=>set('custom_category',e.target.value)}
-                   placeholder="Eigene Bezeichnung" style={{ ...inputStyle, marginTop:8 }}/>
-          )}
         </div>
 
         <div style={{ marginBottom:14, display:'flex', gap:24 }}>
