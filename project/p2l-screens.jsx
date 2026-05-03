@@ -213,7 +213,7 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
             </button>
           )}
         </div>
-        <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
+        <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4, paddingRight:16, margin:'0 -16px', paddingLeft:16, WebkitOverflowScrolling:'touch' }}>
           <Chip t={t} active={!filterCat} onClick={()=>setFilterCat('')} small>Alle</Chip>
           {CATEGORIES.map(c => (
             <Chip key={c.id} t={t} active={filterCat===c.id}
