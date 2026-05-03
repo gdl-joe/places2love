@@ -566,6 +566,7 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
   const [tagInput,      setTagInput]      = React.useState('');
   const [existingPhotos,setExistingPhotos]= React.useState(editData?.photos || []);
   const [pendingPhotos, setPendingPhotos] = React.useState([]);
+  const [uploadProgress,setUploadProgress]= React.useState(null); // null | {done,total}
   const [gpsInput,      setGpsInput]      = React.useState(
     (editData?.lat && editData?.lng)
       ? `${Number(editData.lat).toFixed(7)}, ${Number(editData.lng).toFixed(7)}`
@@ -645,6 +646,26 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
   function addPhotos(files) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imgs.length) setPendingPhotos(ps => [...ps, ...imgs]);
+  }
+
+  async function handleUploadNow() {
+    if (!pendingPhotos.length || !isEdit || !editData?.id) return;
+    const total = pendingPhotos.length;
+    setUploadProgress({ done: 0, total });
+    const failed = [];
+    for (let i = 0; i < pendingPhotos.length; i++) {
+      try {
+        const result = await uploadPhoto(pendingPhotos[i], editData.id);
+        if (result?.error) throw new Error(result.error);
+        setExistingPhotos(ps => [...ps, { id: result.id, path: result.path }]);
+        setUploadProgress({ done: i + 1, total });
+      } catch (err) {
+        failed.push(pendingPhotos[i]);
+      }
+    }
+    setPendingPhotos(failed);
+    setUploadProgress(null);
+    if (failed.length) alert(`${failed.length} Foto${failed.length>1?'s':''} konnten nicht hochgeladen werden.`);
   }
 
   async function deleteExistingPhoto(photoId) {
@@ -965,9 +986,40 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
                      onChange={e=>addPhotos(e.target.files)}/>
             </label>
           </div>
+          {/* Upload-Button + Fortschritt */}
           {pendingPhotos.length > 0 && (
-            <div style={{ fontSize:11, color:t.muted, marginTop:6, textAlign:'center' }}>
-              {pendingPhotos.length} neues Foto{pendingPhotos.length>1?'s':''} werden nach dem Speichern hochgeladen
+            <div style={{ marginTop:10 }}>
+              {isEdit ? (
+                <>
+                  <button onClick={handleUploadNow}
+                          disabled={!!uploadProgress}
+                          style={{
+                            width:'100%', background: uploadProgress ? t.bg3 : t.accent,
+                            color: uploadProgress ? t.muted : '#fff', border:'none',
+                            borderRadius:9, padding:'11px 16px', fontSize:14,
+                            fontWeight:600, fontFamily:t.fontUI, cursor: uploadProgress ? 'default' : 'pointer',
+                            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                          }}>
+                    {uploadProgress
+                      ? `Hochladen… ${uploadProgress.done} / ${uploadProgress.total}`
+                      : `⬆ ${pendingPhotos.length} Foto${pendingPhotos.length>1?'s':''} jetzt hochladen`
+                    }
+                  </button>
+                  {uploadProgress && (
+                    <div style={{ marginTop:6, height:6, background:t.bg3, borderRadius:3, overflow:'hidden' }}>
+                      <div style={{
+                        height:'100%', borderRadius:3, background:t.accent,
+                        width: `${(uploadProgress.done / uploadProgress.total) * 100}%`,
+                        transition:'width 0.3s ease',
+                      }}/>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize:11, color:t.muted, textAlign:'center' }}>
+                  {pendingPhotos.length} Foto{pendingPhotos.length>1?'s':''} — werden nach dem Speichern hochgeladen
+                </div>
+              )}
             </div>
           )}
         </div>
