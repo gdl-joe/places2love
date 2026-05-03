@@ -29,7 +29,7 @@ function Chip({ children, t, active, onClick, small }) {
       border: `1px solid ${active ? t.accent : t.border}`,
       borderRadius:999, padding: small ? '4px 10px' : '6px 13px',
       fontSize: small ? 11 : 12.5, fontWeight:600, fontFamily:t.fontUI,
-      whiteSpace:'nowrap', cursor:'pointer',
+      whiteSpace:'nowrap', cursor:'pointer', flexShrink:0,
     }}>{children}</button>
   );
 }
