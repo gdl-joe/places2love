@@ -1,3 +1,4 @@
 php_flag engine off
 Options -ExecCGI
-AddHandler cgi-script .php .pl .py .jsp .asp .sh .cgi
+RemoveHandler .php .pl .py .jsp .asp .sh .cgi
+RemoveType .php .pl .py .jsp .asp .sh .cgi
