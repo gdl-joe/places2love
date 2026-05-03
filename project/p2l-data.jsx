@@ -67,7 +67,7 @@ const COUNTRIES = [
   { name: 'Kosovo',              flag: '🇽🇰' },
   { name: 'Tunesien',            flag: '🇹🇳' },
   { name: 'Weißrussland',        flag: '🇧🇾' },
-];
+].sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
 // ─── Kategorie-Farbgradienten (Fallback wenn kein Foto) ───────
 const CAT_GRADIENTS = {
