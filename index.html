@@ -124,12 +124,14 @@
       async function syncQueue() {
         const q = getQueue();
         if (!q.length || !navigator.onLine) return;
+        const failed = [];
         for (const item of q) {
-          try { await apiFetch('/places.php', { method:'POST', body: JSON.stringify(item) }); } catch {}
+          try { await apiFetch('/places.php', { method:'POST', body: JSON.stringify(item) }); }
+          catch { failed.push(item); }
         }
-        setQueue([]);
-        setPendingQ(0);
-        loadPlaces();
+        setQueue(failed);
+        setPendingQ(failed.length);
+        if (failed.length < q.length) loadPlaces();
       }
       window.addEventListener('online', syncQueue);
       return () => window.removeEventListener('online', syncQueue);

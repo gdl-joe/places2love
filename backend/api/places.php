@@ -128,11 +128,18 @@ if ($method === 'DELETE' && $id) {
      WHERE pp.place_id = ? AND p.user_id = ?"
   );
   $photos->execute([$id, $uid]);
-  foreach ($photos->fetchAll() as $p) {
-    $file = rtrim($cfg['upload_dir'], '/') . '/' . ltrim($p['path'], '/');
+  $photoPaths = array_column($photos->fetchAll(), 'path');
+
+  $db->beginTransaction();
+  $db->prepare("DELETE FROM places WHERE id = ? AND user_id = ?")->execute([$id, $uid]);
+  $db->commit();
+
+  // Delete files only after successful DB commit
+  $uploadDir = rtrim($cfg['upload_dir'], '/');
+  foreach ($photoPaths as $path) {
+    $file = $uploadDir . '/' . ltrim($path, '/');
     if (file_exists($file)) unlink($file);
   }
-  $db->prepare("DELETE FROM places WHERE id = ? AND user_id = ?")->execute([$id, $uid]);
   jsonOut(['ok' => true]);
 }
 
@@ -151,7 +158,11 @@ if ($method === 'DELETE' && isset($_GET['photo'])) {
 
   $file = rtrim($cfg['upload_dir'], '/') . '/' . ltrim($photo['path'], '/');
   if (file_exists($file)) unlink($file);
-  $db->prepare("DELETE FROM place_photos WHERE id = ?")->execute([$photoId]);
+  $db->prepare(
+    "DELETE pp FROM place_photos pp
+     JOIN places p ON p.id = pp.place_id
+     WHERE pp.id = ? AND p.user_id = ?"
+  )->execute([$photoId, $uid]);
   jsonOut(['ok' => true]);
 }
 

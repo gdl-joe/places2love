@@ -1,3 +1,12 @@
+// ─── XSS-Escaping ─────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
 // ─── Tile-Helper ─────────────────────────────────────────────
 function applyTiles(map, provider) {
   if (provider === 'mapy') {
@@ -85,8 +94,8 @@ function ScreenMap({ t, places, onOpen }) {
         .addTo(map)
         .bindPopup(
           `<div style="font-family:system-ui;min-width:120px">
-            <div style="font-weight:600;margin-bottom:4px">${p.title}</div>
-            <div style="font-size:12px;color:#666">${cat.emoji} ${cat.label}</div>
+            <div style="font-weight:600;margin-bottom:4px">${escHtml(p.title)}</div>
+            <div style="font-size:12px;color:#666">${cat.emoji} ${escHtml(cat.label)}</div>
           </div>`,
           { maxWidth: 180 }
         );

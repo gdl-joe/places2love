@@ -1,4 +1,4 @@
-const CACHE = 'p2l-v1';
+const CACHE = 'p2l-v2';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', e =>
@@ -11,6 +11,14 @@ self.addEventListener('activate', e =>
 );
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Network-first for HTML navigation (ensures app updates are picked up)
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+  // Cache-first for static assets
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
