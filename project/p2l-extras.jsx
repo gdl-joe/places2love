@@ -72,7 +72,7 @@ function ScreenMap({ t, places, onOpen }) {
     const withGPS = places.filter(p => p.lat && p.lng);
 
     withGPS.forEach(p => {
-      const cat = CATEGORY_MAP[p.category] || CATEGORY_MAP.Sonstiges;
+      const cat = CATEGORY_MAP[p.category] || { emoji: '📍', label: p.category || 'Ort' };
       const pinHtml = `<div style="
         background:${t.accent};
         border:2px solid #fff;
