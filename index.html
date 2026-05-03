@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <title>places2love</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <link rel="manifest" href="manifest.webmanifest"/>
+  <meta name="theme-color" content="#1c2420"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="places2love"/>
+  <link rel="apple-touch-icon" href="icon.svg"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    :root { --sat: env(safe-area-inset-top,54px); --sab: env(safe-area-inset-bottom,0px); }
+    html,body { margin:0; padding:0; height:100%; font-family: Inter, system-ui, sans-serif; overflow:hidden; }
+    #root { width:100%; height:100dvh; overflow:hidden; }
+    *::-webkit-scrollbar { display:none; }
+    * { scrollbar-width:none; box-sizing:border-box; }
+    button { -webkit-tap-highlight-color:transparent; cursor:pointer; border:none; }
+    input,textarea,select { -webkit-tap-highlight-color:transparent; }
+    input:focus,textarea:focus,select:focus { outline:none; }
+    @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  </style>
+  <script>
+    window.MAPKEY = 'DEIN_MAPYCZ_KEY';
+    if (localStorage.getItem('p2l-theme') === 'light') {
+      document.documentElement.classList.add('light');
+    }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+
+  <script type="text/babel" src="project/p2l-data.jsx"></script>
+  <script type="text/babel" src="project/p2l-screens.jsx"></script>
+  <script type="text/babel" src="project/p2l-extras.jsx"></script>
+
+  <script type="text/babel">
+  const API = './backend/api';
+
+  // ── Offline-Queue ──────────────────────────────────────────
+  const QUEUE_KEY  = 'p2l_pending';
+  const getQueue   = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch { return []; } };
+  const setQueue   = (a) => localStorage.setItem(QUEUE_KEY, JSON.stringify(a));
+
+  // ── Auth helpers ───────────────────────────────────────────
+  const getToken  = ()  => localStorage.getItem('p2l-token') || '';
+  const saveToken = (t) => t ? localStorage.setItem('p2l-token', t) : localStorage.removeItem('p2l-token');
+  const saveUser  = (u) => u ? localStorage.setItem('p2l-user', JSON.stringify(u)) : localStorage.removeItem('p2l-user');
+  const loadUser  = ()  => { try { return JSON.parse(localStorage.getItem('p2l-user')); } catch { return null; } };
+
+  // ── API fetch ──────────────────────────────────────────────
+  async function apiFetch(path, opts = {}) {
+    const tk = getToken();
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (tk) headers['Authorization'] = 'Bearer ' + tk;
+    const res = await fetch(API + path, { ...opts, headers });
+    if (res.status === 401) { saveToken(null); saveUser(null); window.location.reload(); return; }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return res.json();
+    return res;
+  }
+
+  // ── Upload helper ──────────────────────────────────────────
+  async function uploadPhoto(file, placeId) {
+    const fd = new FormData();
+    fd.append('photo', file);
+    if (placeId) fd.append('place_id', placeId);
+    const tk = getToken();
+    const res = await fetch(API + '/upload.php', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + tk },
+      body: fd,
+    });
+    return res.json();
+  }
+
+  // ── Haupt-App ──────────────────────────────────────────────
+  function App() {
+    const isDarkInit = localStorage.getItem('p2l-theme') !== 'light';
+    const [dark,     setDark]     = React.useState(isDarkInit);
+    const [user,     setUser]     = React.useState(loadUser);
+    const [places,   setPlaces]   = React.useState([]);
+    const [loading,  setLoading]  = React.useState(false);
+    const [screen,   setScreen]   = React.useState('list');
+    const [activeId, setActiveId] = React.useState(null);
+    const [editData, setEditData] = React.useState(null);
+    const [pendingQ, setPendingQ] = React.useState(getQueue().length);
+
+    const t = dark ? THEMES.dark : THEMES.light;
+
+    const toggleTheme = React.useCallback(() => {
+      setDark(d => {
+        const next = !d;
+        localStorage.setItem('p2l-theme', next ? 'dark' : 'light');
+        document.documentElement.classList.toggle('light', !next);
+        return next;
+      });
+    }, []);
+
+    const loadPlaces = React.useCallback(async () => {
+      if (!getToken()) return;
+      setLoading(true);
+      try {
+        const data = await apiFetch('/places.php');
+        if (Array.isArray(data)) setPlaces(data);
+      } finally { setLoading(false); }
+    }, []);
+
+    React.useEffect(() => { if (user) loadPlaces(); }, [user]);
+
+    React.useEffect(() => {
+      async function syncQueue() {
+        const q = getQueue();
+        if (!q.length || !navigator.onLine) return;
+        for (const item of q) {
+          try { await apiFetch('/places.php', { method:'POST', body: JSON.stringify(item) }); } catch {}
+        }
+        setQueue([]);
+        setPendingQ(0);
+        loadPlaces();
+      }
+      window.addEventListener('online', syncQueue);
+      return () => window.removeEventListener('online', syncQueue);
+    }, [loadPlaces]);
+
+    async function savePlace(data, id = null) {
+      if (navigator.onLine) {
+        if (id) {
+          await apiFetch('/places.php?id=' + id, { method:'PUT', body: JSON.stringify(data) });
+        } else {
+          await apiFetch('/places.php', { method:'POST', body: JSON.stringify(data) });
+        }
+        await loadPlaces();
+      } else {
+        const q = getQueue();
+        q.push({ ...data, _offline: true, _ts: Date.now() });
+        setQueue(q);
+        setPendingQ(q.length);
+      }
+    }
+
+    async function deletePlace(id) {
+      await apiFetch('/places.php?id=' + id, { method:'DELETE' });
+      setPlaces(ps => ps.filter(p => p.id !== id));
+      setScreen('list');
+    }
+
+    async function handleAuth(action, email, password, name = '') {
+      const data = await apiFetch('/auth.php?action=' + action, {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+      });
+      if (data && data.token) {
+        saveToken(data.token);
+        saveUser(data.user);
+        setUser(data.user);
+      }
+      return data;
+    }
+
+    async function handleLogout() {
+      await apiFetch('/auth.php?action=logout', { method:'POST' });
+      saveToken(null);
+      saveUser(null);
+      setUser(null);
+      setPlaces([]);
+      setScreen('list');
+    }
+
+    function openDetail(id) { setActiveId(id); setScreen('detail'); }
+    function openForm(place = null) { setEditData(place); setScreen('form'); }
+
+    if (!user) {
+      return <ScreenLogin t={t} onAuth={handleAuth} />;
+    }
+
+    const NAV = [
+      { id:'list',    label:'Liste',    icon:'📋' },
+      { id:'map',     label:'Karte',    icon:'🗺️' },
+      { id:'stats',   label:'Statistik',icon:'📊' },
+      { id:'profile', label:'Profil',   icon:'👤' },
+    ];
+    const mainTabs = ['list','map','stats','profile'];
+    const showNav  = mainTabs.includes(screen);
+
+    return (
+      <div style={{ width:'100%', height:'100dvh', display:'flex', flexDirection:'column',
+                    background:t.bg, color:t.text, fontFamily:t.fontUI, overflow:'hidden' }}>
+        <div style={{ flex:1, overflow:'hidden', position:'relative' }}>
+          {screen === 'list'    && <ScreenList    t={t} places={places} loading={loading} onOpen={openDetail} onNew={()=>openForm()} pendingQ={pendingQ} />}
+          {screen === 'map'     && <ScreenMap     t={t} places={places} onOpen={openDetail} />}
+          {screen === 'stats'   && <ScreenStats   t={t} places={places} />}
+          {screen === 'profile' && <ScreenProfile t={t} user={user} dark={dark} onToggleTheme={toggleTheme} onLogout={handleLogout} apiBase={API} token={getToken()} />}
+          {screen === 'detail'  && <ScreenDetail  t={t} placeId={activeId} places={places} onBack={()=>setScreen('list')} onEdit={(p)=>openForm(p)} onDelete={deletePlace} uploadPhoto={uploadPhoto} loadPlaces={loadPlaces} apiFetch={apiFetch} cfg={{uploadUrl:'./uploads'}} />}
+          {screen === 'form'    && <ScreenForm    t={t} editData={editData} onSave={savePlace} onBack={()=>setScreen(editData?'detail':'list')} apiFetch={apiFetch} uploadPhoto={uploadPhoto} />}
+        </div>
+        {showNav && (
+          <div style={{
+            display:'flex', justifyContent:'space-around', alignItems:'center',
+            height:`calc(52px + var(--sab))`, paddingBottom:'var(--sab)',
+            background:t.bg2, borderTop:`1px solid ${t.border}`, flexShrink:0,
+          }}>
+            {NAV.map(n => (
+              <button key={n.id} onClick={()=>setScreen(n.id)} style={{
+                display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+                background:'none', padding:'6px 16px',
+                color: screen === n.id ? t.accent : t.muted,
+                fontSize:9, fontWeight:600, fontFamily:t.fontUI,
+                letterSpacing:'0.04em', textTransform:'uppercase',
+              }}>
+                <span style={{ fontSize:20 }}>{n.icon}</span>
+                {n.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
