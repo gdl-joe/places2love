@@ -247,9 +247,11 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
 
 // ─── ScreenDetail ─────────────────────────────────────────────
 function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadPlaces, apiFetch, cfg }) {
-  const [place,      setPlace]      = React.useState(null);
-  const [delConfirm, setDelConfirm] = React.useState(false);
-  const [uploading,  setUploading]  = React.useState(false);
+  const [place,       setPlace]      = React.useState(null);
+  const [delConfirm,  setDelConfirm] = React.useState(false);
+  const [uploading,   setUploading]  = React.useState(false);
+  const [lightboxIdx, setLightboxIdx]= React.useState(null);
+  const touchStartX = React.useRef(null);
 
   React.useEffect(() => {
     apiFetch('/places.php?id=' + placeId).then(data => {
@@ -358,24 +360,21 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
         )}
 
         <SectionLabel t={t}>Fotos</SectionLabel>
-        <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 12px' }}>
-          {place.photos?.map(ph => (
-            <div key={ph.id} style={{ position:'relative', flexShrink:0 }}>
+        <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 12px',
+                      WebkitOverflowScrolling:'touch' }}>
+          {place.photos?.map((ph, idx) => (
+            <div key={ph.id} style={{ flexShrink:0, cursor:'pointer' }}
+                 onClick={()=>setLightboxIdx(idx)}>
               <img src={`${cfg.uploadUrl}/${ph.path}`}
-                   style={{ width:100, height:100, objectFit:'cover', borderRadius:8 }}/>
-              <button onClick={()=>handleDeletePhoto(ph.id)} style={{
-                position:'absolute', top:3, right:3,
-                background:'rgba(0,0,0,0.6)', borderRadius:999,
-                width:20, height:20, display:'flex', alignItems:'center',
-                justifyContent:'center', color:'#fff', fontSize:11, fontWeight:700,
-                border:'none', cursor:'pointer',
-              }}>×</button>
+                   style={{ width:100, height:100, objectFit:'cover', borderRadius:8,
+                            display:'block' }}/>
             </div>
           ))}
           <label style={{
             width:100, height:100, flexShrink:0, borderRadius:8,
             border:`2px dashed ${t.border}`, display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4, color:t.muted, fontSize:11,
+            alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4,
+            color:t.muted, fontSize:11,
           }}>
             {uploading ? '…' : <>{Icon.photo(t.muted)}<span>Foto</span></>}
             <input type="file" accept="image/*" style={{ display:'none' }}
@@ -410,6 +409,104 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
           </>
         )}
       </div>
+
+      {/* Lightbox */}
+      {lightboxIdx !== null && place.photos?.length > 0 && (() => {
+        const photos = place.photos;
+        const idx    = Math.max(0, Math.min(lightboxIdx, photos.length - 1));
+        const prev   = ()=> setLightboxIdx(i => Math.max(0, i - 1));
+        const next   = ()=> setLightboxIdx(i => Math.min(photos.length - 1, i + 1));
+        return (
+          <div
+            style={{
+              position:'fixed', inset:0, zIndex:2000,
+              background:'rgba(0,0,0,0.95)',
+              display:'flex', flexDirection:'column',
+              alignItems:'center', justifyContent:'center',
+              animation:'fadeIn 0.15s ease',
+            }}
+            onTouchStart={e=>{ touchStartX.current = e.touches[0].clientX; }}
+            onTouchEnd={e=>{
+              if (touchStartX.current === null) return;
+              const dx = e.changedTouches[0].clientX - touchStartX.current;
+              touchStartX.current = null;
+              if (dx < -50) next();
+              else if (dx > 50) prev();
+            }}
+          >
+            {/* Schließen + Zähler */}
+            <div style={{
+              position:'absolute', top:0, left:0, right:0,
+              padding:'calc(var(--sat) + 10px) 16px 10px',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              background:'linear-gradient(rgba(0,0,0,0.5),transparent)',
+            }}>
+              <div style={{ color:'rgba(255,255,255,0.7)', fontSize:14 }}>
+                {idx + 1} / {photos.length}
+              </div>
+              <button onClick={()=>setLightboxIdx(null)} style={{
+                background:'rgba(255,255,255,0.15)', border:'none',
+                borderRadius:999, width:34, height:34,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color:'#fff', fontSize:20, cursor:'pointer',
+              }}>×</button>
+            </div>
+
+            {/* Foto */}
+            <img
+              key={idx}
+              src={`${cfg.uploadUrl}/${photos[idx].path}`}
+              style={{
+                maxWidth:'100%', maxHeight:'80dvh',
+                objectFit:'contain', borderRadius:4,
+                animation:'fadeIn 0.15s ease',
+                userSelect:'none', WebkitUserSelect:'none',
+              }}
+            />
+
+            {/* Pfeil links */}
+            {idx > 0 && (
+              <button onClick={prev} style={{
+                position:'absolute', left:12, top:'50%', transform:'translateY(-50%)',
+                background:'rgba(255,255,255,0.15)', border:'none', borderRadius:999,
+                width:42, height:42, display:'flex', alignItems:'center',
+                justifyContent:'center', color:'#fff', fontSize:22, cursor:'pointer',
+              }}>‹</button>
+            )}
+
+            {/* Pfeil rechts */}
+            {idx < photos.length - 1 && (
+              <button onClick={next} style={{
+                position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                background:'rgba(255,255,255,0.15)', border:'none', borderRadius:999,
+                width:42, height:42, display:'flex', alignItems:'center',
+                justifyContent:'center', color:'#fff', fontSize:22, cursor:'pointer',
+              }}>›</button>
+            )}
+
+            {/* Thumbnail-Streifen unten */}
+            <div style={{
+              position:'absolute', bottom:0, left:0, right:0,
+              padding:'10px 12px calc(var(--sab) + 12px)',
+              display:'flex', gap:6, overflowX:'auto',
+              background:'linear-gradient(transparent, rgba(0,0,0,0.6))',
+              WebkitOverflowScrolling:'touch',
+            }}>
+              {photos.map((ph, i) => (
+                <img key={ph.id} src={`${cfg.uploadUrl}/${ph.path}`}
+                     onClick={()=>setLightboxIdx(i)}
+                     style={{
+                       width:54, height:54, objectFit:'cover', borderRadius:5,
+                       flexShrink:0, cursor:'pointer',
+                       opacity: i === idx ? 1 : 0.5,
+                       outline: i === idx ? '2px solid #fff' : 'none',
+                       transition:'opacity 0.15s',
+                     }}/>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {delConfirm && (
         <div style={{
