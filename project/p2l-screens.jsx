@@ -216,20 +216,22 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
             )}
           </div>
         </div>
-        {/* Kategorie-Chips — eigene Zeile ohne übergeordnetes Padding */}
+        {/* Kategorie-Chips — scroll wrapper + inline-flex für iOS */}
         <div style={{
-          display:'flex', gap:6, overflowX:'auto',
-          padding:'0 16px 10px',
+          overflowX:'scroll', overflowY:'visible',
           WebkitOverflowScrolling:'touch',
-          scrollbarWidth:'none',
+          scrollbarWidth:'none', msOverflowStyle:'none',
+          padding:'0 0 10px',
         }}>
-          <Chip t={t} active={!filterCat} onClick={()=>setFilterCat('')} small>Alle</Chip>
-          {CATEGORIES.map(c => (
-            <Chip key={c.id} t={t} active={filterCat===c.id}
-                  onClick={()=>setFilterCat(f=>f===c.id?'':c.id)} small>
-              {c.emoji} {c.label}
-            </Chip>
-          ))}
+          <div style={{ display:'inline-flex', gap:6, padding:'0 16px', minWidth:'100%' }}>
+            <Chip t={t} active={!filterCat} onClick={()=>setFilterCat('')} small>Alle</Chip>
+            {CATEGORIES.map(c => (
+              <Chip key={c.id} t={t} active={filterCat===c.id}
+                    onClick={()=>setFilterCat(f=>f===c.id?'':c.id)} small>
+                {c.emoji} {c.label}
+              </Chip>
+            ))}
+          </div>
         </div>
       </div>
 
