@@ -468,6 +468,13 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
   });
   const [tagInput,      setTagInput]      = React.useState('');
   const [pendingPhotos, setPendingPhotos] = React.useState([]);
+  const [gpsInput,      setGpsInput]      = React.useState(
+    (editData?.lat && editData?.lng)
+      ? `${Number(editData.lat).toFixed(7)}, ${Number(editData.lng).toFixed(7)}`
+      : ''
+  );
+  const [gpsParsed,     setGpsParsed]     = React.useState(!!(editData?.lat && editData?.lng));
+  const [dragOver,      setDragOver]      = React.useState(false);
   const [busy,          setBusy]          = React.useState(false);
   const [err,           setErr]           = React.useState('');
 
@@ -501,11 +508,45 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
     const c = COUNTRIES.find(c2=>c2.name===name);
     setForm(f => ({ ...f, country: name, country_flag: c?.flag||'' }));
   }
+  function parseCoords(str) {
+    // Format: 43.4570492N, 4.9370081W  (Mapy.cz)
+    const m = str.match(/(\d+\.?\d*)\s*([NSns])[,\s]+(\d+\.?\d*)\s*([EWew])/);
+    if (m) {
+      const lat = parseFloat(m[1]) * (/[Ss]/i.test(m[2]) ? -1 : 1);
+      const lng = parseFloat(m[3]) * (/[Ww]/i.test(m[4]) ? -1 : 1);
+      return { lat, lng };
+    }
+    // Fallback: plain decimal "47.5938, 11.0895"
+    const m2 = str.match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
+    if (m2) return { lat: parseFloat(m2[1]), lng: parseFloat(m2[2]) };
+    return null;
+  }
+
+  function handleGpsInput(val) {
+    setGpsInput(val);
+    const parsed = parseCoords(val);
+    if (parsed) {
+      setForm(f => ({ ...f, lat: parsed.lat, lng: parsed.lng }));
+      setGpsParsed(true);
+    } else {
+      setGpsParsed(false);
+    }
+  }
+
   function handleGPS() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(pos => {
-      setForm(f => ({ ...f, lat: pos.coords.latitude, lng: pos.coords.longitude }));
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setForm(f => ({ ...f, lat, lng }));
+      setGpsInput(`${lat.toFixed(7)}, ${lng.toFixed(7)}`);
+      setGpsParsed(true);
     });
+  }
+
+  function addPhotos(files) {
+    const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imgs.length) setPendingPhotos(ps => [...ps, ...imgs]);
   }
 
   function toggleCompanion(name) {
@@ -762,14 +803,22 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
               ))}
             </div>
           )}
-          <label style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            background:t.bg3, border:`1px dashed ${t.border}`, borderRadius:9,
-            color:t.muted, padding:'10px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
-          }}>
-            {Icon.photo(t.muted)} Fotos auswählen
+          <label
+            onDragOver={e=>{ e.preventDefault(); setDragOver(true); }}
+            onDragLeave={()=>setDragOver(false)}
+            onDrop={e=>{ e.preventDefault(); setDragOver(false); addPhotos(e.dataTransfer.files); }}
+            style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              background: dragOver ? t.accentSoft : t.bg3,
+              border:`2px dashed ${dragOver ? t.accent : t.border}`,
+              borderRadius:9, color: dragOver ? t.accent : t.muted,
+              padding:'14px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
+              transition:'all 0.15s ease',
+            }}>
+            {Icon.photo(dragOver ? t.accent : t.muted)}
+            {dragOver ? 'Loslassen zum Hinzufügen' : 'Hier ablegen oder antippen'}
             <input type="file" accept="image/*" multiple style={{ display:'none' }}
-                   onChange={e=>setPendingPhotos(ps=>[...ps, ...Array.from(e.target.files||[])])}/>
+                   onChange={e=>addPhotos(e.target.files)}/>
           </label>
           {!isEdit && pendingPhotos.length > 0 && (
             <div style={{ fontSize:11, color:t.muted, marginTop:5 }}>
@@ -781,22 +830,25 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
         {/* GPS-Koordinaten */}
         <div style={{ marginBottom:14 }}>
           <label style={labelStyle}>GPS-Koordinaten</label>
-          <div style={{ display:'flex', gap:8, marginBottom:8 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:10, color:t.muted, marginBottom:3 }}>Breite (Lat)</div>
-              <input type="number" step="0.000001" value={form.lat}
-                     onChange={e=>set('lat', e.target.value)}
-                     placeholder="z.B. 47.5938"
-                     style={inputStyle}/>
-            </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:10, color:t.muted, marginBottom:3 }}>Länge (Lng)</div>
-              <input type="number" step="0.000001" value={form.lng}
-                     onChange={e=>set('lng', e.target.value)}
-                     placeholder="z.B. 11.0895"
-                     style={inputStyle}/>
-            </div>
+          <div style={{ position:'relative', marginBottom:8 }}>
+            <input
+              value={gpsInput}
+              onChange={e=>handleGpsInput(e.target.value)}
+              placeholder="z.B. 43.4570492N, 4.9370081W — aus Mapy einkopieren"
+              style={{ ...inputStyle, paddingRight:34 }}
+            />
+            {gpsParsed && (
+              <span style={{
+                position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                color:t.accent, fontSize:16,
+              }}>✓</span>
+            )}
           </div>
+          {gpsParsed && form.lat && (
+            <div style={{ fontSize:11, color:t.muted, marginBottom:6 }}>
+              Lat {Number(form.lat).toFixed(5)} · Lng {Number(form.lng).toFixed(5)}
+            </div>
+          )}
           <button onClick={handleGPS} style={{
             width:'100%', background:t.bg3, border:`1px solid ${t.border}`, borderRadius:9,
             color:t.text, padding:'10px', fontSize:13, fontFamily:t.fontUI,
