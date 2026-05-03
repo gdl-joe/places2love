@@ -59,6 +59,8 @@ imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
 
 if ($ext === 'png') {
   imagepng($dst, $destPath, 9);
+} elseif ($ext === 'webp') {
+  imagewebp($dst, $destPath, 85);
 } else {
   imagejpeg($dst, $destPath, 85);
 }
