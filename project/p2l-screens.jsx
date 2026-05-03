@@ -216,22 +216,34 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
             )}
           </div>
         </div>
-        {/* Kategorie-Chips — scroll wrapper + inline-flex für iOS */}
+        {/* Kategorie-Chips — white-space:nowrap + inline-block (klassisch, iOS-sicher) */}
         <div style={{
-          overflowX:'scroll', overflowY:'visible',
+          overflowX:'scroll',
           WebkitOverflowScrolling:'touch',
-          scrollbarWidth:'none', msOverflowStyle:'none',
-          padding:'0 0 10px',
+          scrollbarWidth:'none',
+          whiteSpace:'nowrap',
+          padding:'0 16px 10px',
         }}>
-          <div style={{ display:'inline-flex', gap:6, padding:'0 16px', minWidth:'100%' }}>
-            <Chip t={t} active={!filterCat} onClick={()=>setFilterCat('')} small>Alle</Chip>
-            {CATEGORIES.map(c => (
-              <Chip key={c.id} t={t} active={filterCat===c.id}
-                    onClick={()=>setFilterCat(f=>f===c.id?'':c.id)} small>
-                {c.emoji} {c.label}
-              </Chip>
-            ))}
-          </div>
+          {[{id:'', label:'Alle', emoji:''},...CATEGORIES].map((c,i) => {
+            const active = c.id === '' ? !filterCat : filterCat === c.id;
+            return (
+              <button key={c.id||'alle'}
+                onClick={()=>setFilterCat(c.id===''?'':f=>f===c.id?'':c.id)}
+                style={{
+                  display:'inline-block',
+                  background: active ? t.accentSoft : t.chipBg,
+                  color: active ? t.accent : t.muted,
+                  border:`1px solid ${active ? t.accent : t.border}`,
+                  borderRadius:999, padding:'4px 10px',
+                  fontSize:11, fontWeight:600, fontFamily:t.fontUI,
+                  whiteSpace:'nowrap', cursor:'pointer',
+                  marginRight: i < CATEGORIES.length ? 6 : 0,
+                  verticalAlign:'middle',
+                }}>
+                {c.emoji ? `${c.emoji} ` : ''}{c.label||'Alle'}
+              </button>
+            );
+          })}
         </div>
       </div>
 
