@@ -12,8 +12,8 @@ if ($method === 'POST' && $action === 'register') {
   $email = trim($b['email'] ?? '');
   $name  = trim($b['name']  ?? '');
   $pass  = $b['password'] ?? '';
-  if (!$email || !$pass)
-    jsonOut(['error' => 'E-Mail und Passwort erforderlich'], 400);
+  if (!$email || strlen($pass) < 8)
+    jsonOut(['error' => 'E-Mail und mind. 8 Zeichen Passwort erforderlich'], 400);
   if (!filter_var($email, FILTER_VALIDATE_EMAIL))
     jsonOut(['error' => 'Ungültige E-Mail-Adresse'], 400);
   $chk = $db->prepare("SELECT id FROM users WHERE email = ?");

@@ -14,7 +14,7 @@ if ($method === 'GET' && !$id) {
     "SELECT p.*,
        (SELECT GROUP_CONCAT(tag ORDER BY tag SEPARATOR ',')
         FROM place_tags WHERE place_id = p.id) AS tags_raw,
-       (SELECT GROUP_CONCAT(CONCAT(id,':',url,':',label) ORDER BY sort_order SEPARATOR '|')
+       (SELECT GROUP_CONCAT(CONCAT(id,'\t',url,'\t',label) ORDER BY sort_order SEPARATOR '\x01')
         FROM place_links WHERE place_id = p.id) AS links_raw,
        (SELECT path FROM place_photos WHERE place_id = p.id ORDER BY sort_order LIMIT 1) AS cover
      FROM places p
@@ -121,9 +121,13 @@ if ($method === 'PUT' && $id) {
 
 // ── DELETE Ort löschen ────────────────────────────────────────
 if ($method === 'DELETE' && $id) {
-  $cfg    = require __DIR__ . '/../../backend/config.php';
-  $photos = $db->prepare("SELECT path FROM place_photos WHERE place_id = ?");
-  $photos->execute([$id]);
+  $cfg    = require_once __DIR__ . '/../../backend/config.php';
+  $photos = $db->prepare(
+    "SELECT pp.path FROM place_photos pp
+     JOIN places p ON p.id = pp.place_id
+     WHERE pp.place_id = ? AND p.user_id = ?"
+  );
+  $photos->execute([$id, $uid]);
   foreach ($photos->fetchAll() as $p) {
     $file = rtrim($cfg['upload_dir'], '/') . '/' . ltrim($p['path'], '/');
     if (file_exists($file)) unlink($file);
@@ -157,8 +161,9 @@ function hydrate(array $row): array {
   $row['tags']  = $row['tags_raw']  ? explode(',', $row['tags_raw'])  : [];
   $row['links'] = [];
   if ($row['links_raw']) {
-    foreach (explode('|', $row['links_raw']) as $l) {
-      [$lid, $url, $label] = explode(':', $l, 3);
+    foreach (explode("\x01", $row['links_raw']) as $l) {
+      if (!$l) continue;
+      [$lid, $url, $label] = explode("\t", $l, 3);
       $row['links'][] = ['id' => (int)$lid, 'url' => $url, 'label' => $label];
     }
   }
