@@ -1,0 +1,18 @@
+Options -Indexes
+
+# HTTPS redirect (uncomment on production):
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Correct MIME types
+AddType application/manifest+json .webmanifest
+AddType text/javascript .jsx
+
+# Static asset caching
+<FilesMatch "\.(css|js|jsx|svg|png|jpg|webp|woff2)$">
+  Header set Cache-Control "max-age=31536000, immutable"
+</FilesMatch>
+<FilesMatch "\.(html|webmanifest)$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>
