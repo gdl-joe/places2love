@@ -121,7 +121,7 @@ if ($method === 'PUT' && $id) {
 
 // ── DELETE Ort löschen ────────────────────────────────────────
 if ($method === 'DELETE' && $id) {
-  $cfg    = require_once __DIR__ . '/../../backend/config.php';
+  $cfg    = require __DIR__ . '/../../backend/config.php';
   $photos = $db->prepare(
     "SELECT pp.path FROM place_photos pp
      JOIN places p ON p.id = pp.place_id
@@ -133,6 +133,25 @@ if ($method === 'DELETE' && $id) {
     if (file_exists($file)) unlink($file);
   }
   $db->prepare("DELETE FROM places WHERE id = ? AND user_id = ?")->execute([$id, $uid]);
+  jsonOut(['ok' => true]);
+}
+
+// ── DELETE einzelnes Foto ─────────────────────────────────────
+if ($method === 'DELETE' && isset($_GET['photo'])) {
+  $photoId = (int)$_GET['photo'];
+  $cfg     = require __DIR__ . '/../../backend/config.php';
+  $stmt    = $db->prepare(
+    "SELECT pp.path FROM place_photos pp
+     JOIN places p ON p.id = pp.place_id
+     WHERE pp.id = ? AND p.user_id = ?"
+  );
+  $stmt->execute([$photoId, $uid]);
+  $photo = $stmt->fetch();
+  if (!$photo) jsonOut(['error' => 'Not found'], 404);
+
+  $file = rtrim($cfg['upload_dir'], '/') . '/' . ltrim($photo['path'], '/');
+  if (file_exists($file)) unlink($file);
+  $db->prepare("DELETE FROM place_photos WHERE id = ?")->execute([$photoId]);
   jsonOut(['ok' => true]);
 }
 
