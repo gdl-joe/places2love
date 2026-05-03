@@ -196,24 +196,33 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
         </div>
       </div>
 
-      <div style={{ padding:'10px 16px 8px', background:t.bg2, borderBottom:`1px solid ${t.border}` }}>
-        <div style={{
-          display:'flex', alignItems:'center', gap:8,
-          background:t.bg3, borderRadius:10, padding:'8px 12px', marginBottom:8,
-        }}>
-          {Icon.search(t.muted)}
-          <input value={search} onChange={e=>setSearch(e.target.value)}
-                 placeholder="Suchen…" style={{
-            background:'none', border:'none', color:t.text,
-            fontSize:14, fontFamily:t.fontUI, flex:1,
-          }}/>
-          {search && (
-            <button onClick={()=>setSearch('')} style={{ background:'none', padding:0, border:'none' }}>
-              {Icon.close(t.muted)}
-            </button>
-          )}
+      <div style={{ background:t.bg2, borderBottom:`1px solid ${t.border}` }}>
+        {/* Suchfeld */}
+        <div style={{ padding:'10px 16px 8px' }}>
+          <div style={{
+            display:'flex', alignItems:'center', gap:8,
+            background:t.bg3, borderRadius:10, padding:'8px 12px',
+          }}>
+            {Icon.search(t.muted)}
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+                   placeholder="Suchen…" style={{
+              background:'none', border:'none', color:t.text,
+              fontSize:14, fontFamily:t.fontUI, flex:1,
+            }}/>
+            {search && (
+              <button onClick={()=>setSearch('')} style={{ background:'none', padding:0, border:'none' }}>
+                {Icon.close(t.muted)}
+              </button>
+            )}
+          </div>
         </div>
-        <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4, paddingRight:16, margin:'0 -16px', paddingLeft:16, WebkitOverflowScrolling:'touch' }}>
+        {/* Kategorie-Chips — eigene Zeile ohne übergeordnetes Padding */}
+        <div style={{
+          display:'flex', gap:6, overflowX:'auto',
+          padding:'0 16px 10px',
+          WebkitOverflowScrolling:'touch',
+          scrollbarWidth:'none',
+        }}>
           <Chip t={t} active={!filterCat} onClick={()=>setFilterCat('')} small>Alle</Chip>
           {CATEGORIES.map(c => (
             <Chip key={c.id} t={t} active={filterCat===c.id}
