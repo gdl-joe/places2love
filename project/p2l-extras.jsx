@@ -58,6 +58,7 @@ function ScreenMap({ t, places, onOpen }) {
     // Alte Marker entfernen
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
+    setLastPlace(null);
 
     const withGPS = places.filter(p => p.lat && p.lng);
 
