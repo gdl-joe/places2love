@@ -175,7 +175,7 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
   });
 
   return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ height:'100%', display:'flex', flexDirection:'column' }}>
       <div style={{ padding:`calc(var(--sat) + 12px) 16px 8px`,
                     background:t.bg2, borderBottom:`1px solid ${t.border}`,
                     display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>

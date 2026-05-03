@@ -1,4 +1,4 @@
-const CACHE = 'p2l-v3';
+const CACHE = 'p2l-v4';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', e =>

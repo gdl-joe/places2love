@@ -10,8 +10,12 @@ AddType application/manifest+json .webmanifest
 AddType text/javascript .jsx
 
 # Static asset caching
-<FilesMatch "\.(css|js|jsx|svg|png|jpg|webp|woff2)$">
+<FilesMatch "\.(css|js|svg|png|jpg|webp|woff2)$">
   Header set Cache-Control "max-age=31536000, immutable"
+</FilesMatch>
+# JSX files: never cache (no content hash in filename)
+<FilesMatch "\.jsx$">
+  Header set Cache-Control "no-cache, must-revalidate"
 </FilesMatch>
 <FilesMatch "\.(html|webmanifest)$">
   Header set Cache-Control "no-cache"
