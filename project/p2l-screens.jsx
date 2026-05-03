@@ -294,19 +294,22 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
   const REVISIT_LABEL = { ja:'✅ Ja, unbedingt!', vielleicht:'🤔 Vielleicht', nein:'❌ Nein' };
 
   async function handleAddPhoto(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     setUploading(true);
     try {
-      const result = await uploadPhoto(file, place.id);
-      if (result?.error) throw new Error(result.error);
-      await loadPlaces();
+      for (const file of files) {
+        const result = await uploadPhoto(file, place.id);
+        if (result?.error) throw new Error(result.error);
+      }
       const fresh = await apiFetch('/places.php?id=' + placeId);
       if (fresh && !fresh.error) setPlace(fresh);
+      await loadPlaces();
     } catch (err) {
       alert('Foto-Upload fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler'));
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   }
 
@@ -389,24 +392,32 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
         )}
 
         <SectionLabel t={t}>Fotos</SectionLabel>
-        <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 12px',
-                      WebkitOverflowScrolling:'touch' }}>
-          {place.photos?.map((ph, idx) => (
-            <div key={ph.id} style={{ flexShrink:0, cursor:'pointer' }}
-                 onClick={()=>setLightboxIdx(idx)}>
-              <img src={`${cfg.uploadUrl}/${ph.path}`}
-                   style={{ width:100, height:100, objectFit:'cover', borderRadius:8,
-                            display:'block' }}/>
-            </div>
-          ))}
+        {/* Foto-Galerie — scroll container NUR für Thumbnails */}
+        {place.photos?.length > 0 && (
+          <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 8px',
+                        WebkitOverflowScrolling:'touch' }}>
+            {place.photos.map((ph, idx) => (
+              <div key={ph.id} style={{ flexShrink:0, cursor:'pointer' }}
+                   onClick={()=>setLightboxIdx(idx)}>
+                <img src={`${cfg.uploadUrl}/${ph.path}`}
+                     style={{ width:100, height:100, objectFit:'cover', borderRadius:8,
+                              display:'block' }}/>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Upload-Button AUSSERHALB des Scroll-Containers (iOS-Pflicht) */}
+        <div style={{ padding:'0 16px 12px' }}>
           <label style={{
-            width:100, height:100, flexShrink:0, borderRadius:8,
-            border:`2px dashed ${t.border}`, display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4,
-            color:t.muted, fontSize:11,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            background:t.bg3, border:`1px dashed ${t.border}`, borderRadius:9,
+            color: uploading ? t.accent : t.muted,
+            padding:'11px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
           }}>
-            {uploading ? '…' : <>{Icon.photo(t.muted)}<span>Foto</span></>}
-            <input type="file" accept="image/*" style={{ display:'none' }}
+            {Icon.photo(uploading ? t.accent : t.muted)}
+            {uploading ? 'Wird hochgeladen…' : 'Foto hinzufügen'}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic"
+                   multiple style={{ display:'none' }}
                    onChange={handleAddPhoto} disabled={uploading}/>
           </label>
         </div>
