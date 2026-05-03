@@ -272,7 +272,6 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
 function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadPlaces, apiFetch, cfg }) {
   const [place,       setPlace]      = React.useState(null);
   const [delConfirm,  setDelConfirm] = React.useState(false);
-  const [uploading,   setUploading]  = React.useState(false);
   const [lightboxIdx, setLightboxIdx]= React.useState(null);
   const touchStartX = React.useRef(null);
 
@@ -293,31 +292,6 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
 
   const REVISIT_LABEL = { ja:'✅ Ja, unbedingt!', vielleicht:'🤔 Vielleicht', nein:'❌ Nein' };
 
-  async function handleAddPhoto(e) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      for (const file of files) {
-        const result = await uploadPhoto(file, place.id);
-        if (result?.error) throw new Error(result.error);
-      }
-      const fresh = await apiFetch('/places.php?id=' + placeId);
-      if (fresh && !fresh.error) setPlace(fresh);
-      await loadPlaces();
-    } catch (err) {
-      alert('Foto-Upload fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler'));
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  }
-
-  async function handleDeletePhoto(photoId) {
-    await apiFetch('/places.php?photo=' + photoId, { method:'DELETE' });
-    const fresh = await apiFetch('/places.php?id=' + placeId);
-    if (fresh && !fresh.error) setPlace(fresh);
-  }
 
   return (
     <div style={{ height:'100%', overflowY:'auto' }}>
@@ -391,36 +365,22 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
           </>
         )}
 
-        <SectionLabel t={t}>Fotos</SectionLabel>
-        {/* Foto-Galerie — scroll container NUR für Thumbnails */}
         {place.photos?.length > 0 && (
-          <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 8px',
-                        WebkitOverflowScrolling:'touch' }}>
-            {place.photos.map((ph, idx) => (
-              <div key={ph.id} style={{ flexShrink:0, cursor:'pointer' }}
-                   onClick={()=>setLightboxIdx(idx)}>
-                <img src={`${cfg.uploadUrl}/${ph.path}`}
-                     style={{ width:100, height:100, objectFit:'cover', borderRadius:8,
-                              display:'block' }}/>
-              </div>
-            ))}
-          </div>
+          <>
+            <SectionLabel t={t}>Fotos</SectionLabel>
+            <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'0 16px 12px',
+                          WebkitOverflowScrolling:'touch' }}>
+              {place.photos.map((ph, idx) => (
+                <div key={ph.id} style={{ flexShrink:0, cursor:'pointer' }}
+                     onClick={()=>setLightboxIdx(idx)}>
+                  <img src={`${cfg.uploadUrl}/${ph.path}`}
+                       style={{ width:100, height:100, objectFit:'cover', borderRadius:8,
+                                display:'block' }}/>
+                </div>
+              ))}
+            </div>
+          </>
         )}
-        {/* Upload-Button AUSSERHALB des Scroll-Containers (iOS-Pflicht) */}
-        <div style={{ padding:'0 16px 12px' }}>
-          <label style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            background:t.bg3, border:`1px dashed ${t.border}`, borderRadius:9,
-            color: uploading ? t.accent : t.muted,
-            padding:'11px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
-          }}>
-            {Icon.photo(uploading ? t.accent : t.muted)}
-            {uploading ? 'Wird hochgeladen…' : 'Foto hinzufügen'}
-            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic"
-                   multiple style={{ display:'none' }}
-                   onChange={handleAddPhoto} disabled={uploading}/>
-          </label>
-        </div>
 
         {place.links?.length > 0 && (
           <>
@@ -604,6 +564,7 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
     lng:             editData?.lng             || '',
   });
   const [tagInput,      setTagInput]      = React.useState('');
+  const [existingPhotos,setExistingPhotos]= React.useState(editData?.photos || []);
   const [pendingPhotos, setPendingPhotos] = React.useState([]);
   const [gpsInput,      setGpsInput]      = React.useState(
     (editData?.lat && editData?.lng)
@@ -684,6 +645,15 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
   function addPhotos(files) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imgs.length) setPendingPhotos(ps => [...ps, ...imgs]);
+  }
+
+  async function deleteExistingPhoto(photoId) {
+    try {
+      await apiFetch('/places.php?photo=' + photoId, { method:'DELETE' });
+      setExistingPhotos(ps => ps.filter(p => p.id !== photoId));
+    } catch {
+      alert('Foto konnte nicht gelöscht werden');
+    }
   }
 
   function toggleCompanion(name) {
@@ -919,42 +889,85 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
         {/* Fotos */}
         <div style={{ marginBottom:14 }}>
           <label style={labelStyle}>Fotos</label>
-          {pendingPhotos.length > 0 && (
-            <div style={{ display:'flex', gap:8, overflowX:'auto', marginBottom:8 }}>
-              {pendingPhotos.map((file, i) => (
-                <div key={i} style={{ position:'relative', flexShrink:0 }}>
-                  <img src={URL.createObjectURL(file)}
-                       style={{ width:80, height:80, objectFit:'cover', borderRadius:8 }}/>
-                  <button onClick={()=>setPendingPhotos(ps=>ps.filter((_,j)=>j!==i))} style={{
-                    position:'absolute', top:2, right:2,
-                    background:'rgba(0,0,0,0.6)', borderRadius:999,
-                    width:18, height:18, display:'flex', alignItems:'center',
-                    justifyContent:'center', color:'#fff', fontSize:10, border:'none', cursor:'pointer',
+
+          {/* Gespeicherte Fotos (nur bei Bearbeiten) */}
+          {existingPhotos.length > 0 && (
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+              {existingPhotos.map(ph => (
+                <div key={ph.id} style={{ position:'relative', flexShrink:0 }}>
+                  <img src={`./uploads/${ph.path}`}
+                       style={{ width:80, height:80, objectFit:'cover', borderRadius:8, display:'block' }}/>
+                  <button onClick={()=>deleteExistingPhoto(ph.id)} style={{
+                    position:'absolute', top:3, right:3,
+                    background:'rgba(180,30,30,0.85)', borderRadius:999,
+                    width:22, height:22, display:'flex', alignItems:'center',
+                    justifyContent:'center', color:'#fff', fontSize:13, fontWeight:700,
+                    border:'none', cursor:'pointer',
                   }}>×</button>
                 </div>
               ))}
             </div>
           )}
-          <label
+
+          {/* Neue Fotos (Vorschau) */}
+          {pendingPhotos.length > 0 && (
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+              {pendingPhotos.map((file, i) => (
+                <div key={i} style={{ position:'relative', flexShrink:0 }}>
+                  <img src={URL.createObjectURL(file)}
+                       style={{ width:80, height:80, objectFit:'cover', borderRadius:8,
+                                display:'block', opacity:0.8 }}/>
+                  <button onClick={()=>setPendingPhotos(ps=>ps.filter((_,j)=>j!==i))} style={{
+                    position:'absolute', top:3, right:3,
+                    background:'rgba(0,0,0,0.6)', borderRadius:999,
+                    width:22, height:22, display:'flex', alignItems:'center',
+                    justifyContent:'center', color:'#fff', fontSize:13, fontWeight:700,
+                    border:'none', cursor:'pointer',
+                  }}>×</button>
+                  <div style={{
+                    position:'absolute', bottom:3, left:3,
+                    background:'rgba(0,0,0,0.5)', borderRadius:4,
+                    fontSize:8, color:'#fff', padding:'1px 4px',
+                  }}>NEU</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Drag-&-Drop-Zone */}
+          <div
             onDragOver={e=>{ e.preventDefault(); setDragOver(true); }}
-            onDragLeave={()=>setDragOver(false)}
+            onDragLeave={e=>{ if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
             onDrop={e=>{ e.preventDefault(); setDragOver(false); addPhotos(e.dataTransfer.files); }}
             style={{
-              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               background: dragOver ? t.accentSoft : t.bg3,
               border:`2px dashed ${dragOver ? t.accent : t.border}`,
-              borderRadius:9, color: dragOver ? t.accent : t.muted,
-              padding:'14px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
-              transition:'all 0.15s ease',
+              borderRadius:10, color: dragOver ? t.accent : t.muted,
+              padding:'20px 16px', textAlign:'center',
+              transition:'all 0.15s ease', cursor:'pointer',
             }}>
-            {Icon.photo(dragOver ? t.accent : t.muted)}
-            {dragOver ? 'Loslassen zum Hinzufügen' : 'Hier ablegen oder antippen'}
-            <input type="file" accept="image/*" multiple style={{ display:'none' }}
-                   onChange={e=>addPhotos(e.target.files)}/>
-          </label>
-          {!isEdit && pendingPhotos.length > 0 && (
-            <div style={{ fontSize:11, color:t.muted, marginTop:5 }}>
-              {pendingPhotos.length} Foto{pendingPhotos.length>1?'s':''} werden nach dem Speichern hochgeladen
+            <div style={{ fontSize:28, marginBottom:6 }}>📸</div>
+            <div style={{ fontSize:13, fontFamily:t.fontUI, fontWeight:600, marginBottom:4 }}>
+              {dragOver ? 'Loslassen zum Hinzufügen' : 'Fotos hier ablegen'}
+            </div>
+            <div style={{ fontSize:12, color:t.muted, marginBottom:10 }}>
+              vom Rechner ziehen, oder:
+            </div>
+            <label style={{
+              display:'inline-flex', alignItems:'center', gap:6,
+              background:t.accent, color:'#fff', borderRadius:8,
+              padding:'8px 16px', fontSize:13, fontWeight:600,
+              fontFamily:t.fontUI, cursor:'pointer',
+            }}>
+              {Icon.photo('#fff')} Fotos auswählen
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic"
+                     multiple style={{ display:'none' }}
+                     onChange={e=>addPhotos(e.target.files)}/>
+            </label>
+          </div>
+          {pendingPhotos.length > 0 && (
+            <div style={{ fontSize:11, color:t.muted, marginTop:6, textAlign:'center' }}>
+              {pendingPhotos.length} neues Foto{pendingPhotos.length>1?'s':''} werden nach dem Speichern hochgeladen
             </div>
           )}
         </div>
