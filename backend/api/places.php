@@ -54,8 +54,8 @@ if ($method === 'POST') {
   $stmt = $db->prepare(
     "INSERT INTO places
        (user_id, title, category, custom_category, country, country_flag, region,
-        lat, lng, visited_on, rating, difficulty, revisit, entry_cents, duration, note)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        lat, lng, visited_on, rating, difficulty, revisit, companions, entry_cents, duration, note)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   );
   $stmt->execute([
     $uid,
@@ -71,6 +71,7 @@ if ($method === 'POST') {
     (int)($b['rating']    ?? 0),
     (int)($b['difficulty']?? 0),
     $b['revisit']         ?? 'vielleicht',
+    $b['companions']      ?? '',
     (int)round(((float)($b['entry_euros'] ?? 0)) * 100),
     $b['duration']        ?? '',
     $b['note']            ?? null,
@@ -91,7 +92,7 @@ if ($method === 'PUT' && $id) {
   $db->prepare(
     "UPDATE places SET
        title=?, category=?, custom_category=?, country=?, country_flag=?, region=?,
-       lat=?, lng=?, visited_on=?, rating=?, difficulty=?, revisit=?,
+       lat=?, lng=?, visited_on=?, rating=?, difficulty=?, revisit=?, companions=?,
        entry_cents=?, duration=?, note=?
      WHERE id = ?"
   )->execute([
@@ -107,6 +108,7 @@ if ($method === 'PUT' && $id) {
     (int)($b['rating']    ?? 0),
     (int)($b['difficulty']?? 0),
     $b['revisit']         ?? 'vielleicht',
+    $b['companions']      ?? '',
     (int)round(((float)($b['entry_euros'] ?? 0)) * 100),
     $b['duration']        ?? '',
     $b['note']            ?? null,

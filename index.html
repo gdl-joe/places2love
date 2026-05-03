@@ -139,17 +139,21 @@
 
     async function savePlace(data, id = null) {
       if (navigator.onLine) {
+        let placeId = id;
         if (id) {
           await apiFetch('/places.php?id=' + id, { method:'PUT', body: JSON.stringify(data) });
         } else {
-          await apiFetch('/places.php', { method:'POST', body: JSON.stringify(data) });
+          const res = await apiFetch('/places.php', { method:'POST', body: JSON.stringify(data) });
+          placeId = res?.id || null;
         }
         await loadPlaces();
+        return placeId;
       } else {
         const q = getQueue();
         q.push({ ...data, _offline: true, _ts: Date.now() });
         setQueue(q);
         setPendingQ(q.length);
+        return null;
       }
     }
 
@@ -206,7 +210,7 @@
           {screen === 'stats'   && <ScreenStats   t={t} places={places} />}
           {screen === 'profile' && <ScreenProfile t={t} user={user} dark={dark} onToggleTheme={toggleTheme} onLogout={handleLogout} apiBase={API} token={getToken()} />}
           {screen === 'detail'  && <ScreenDetail  t={t} placeId={activeId} places={places} onBack={()=>setScreen('list')} onEdit={(p)=>openForm(p)} onDelete={deletePlace} uploadPhoto={uploadPhoto} loadPlaces={loadPlaces} apiFetch={apiFetch} cfg={{uploadUrl:'./uploads'}} />}
-          {screen === 'form'    && <ScreenForm    t={t} editData={editData} onSave={savePlace} onBack={()=>setScreen(editData?'detail':'list')} apiFetch={apiFetch} uploadPhoto={uploadPhoto} />}
+          {screen === 'form'    && <ScreenForm    t={t} editData={editData} onSave={savePlace} onBack={()=>{setScreen(editData?'detail':'list');}} apiFetch={apiFetch} uploadPhoto={uploadPhoto} />}
         </div>
         {showNav && (
           <div style={{

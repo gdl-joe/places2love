@@ -1,5 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="22" fill="#1c2420"/>
-  <path d="M50 75 C50 75 20 52 20 35 C20 24 28 17 38 17 C43 17 48 20 50 24 C52 20 57 17 62 17 C72 17 80 24 80 35 C80 52 50 75 50 75Z" fill="#4a7c59"/>
-  <circle cx="50" cy="35" r="8" fill="#c8a840"/>
+  <!-- Hintergrund -->
+  <rect width="100" height="100" rx="20" fill="#1c2420"/>
+
+  <!-- Hinterer Berg (rechts, dunkler) -->
+  <polygon points="70,38 91,76 49,76" fill="#243525"/>
+
+  <!-- Hauptberg -->
+  <polygon points="50,25 77,76 23,76" fill="#4a7c59"/>
+
+  <!-- Schneegipfel -->
+  <polygon points="50,25 59,44 41,44" fill="#ddeedd" opacity="0.65"/>
+
+  <!-- Bodenlinie -->
+  <rect x="18" y="74" width="64" height="7" rx="3.5" fill="#2a4030"/>
+
+  <!-- Herz am Gipfel -->
+  <path d="M50,38
+    C50,38 42,30 42,26
+    C42,22 45.5,20 49,23
+    C49.5,23.5 50,24.5 50,25.5
+    C50,24.5 50.5,23.5 51,23
+    C54.5,20 58,22 58,26
+    C58,30 50,38 50,38Z"
+    fill="#e85a40"/>
+
+  <!-- Herzglanz -->
+  <ellipse cx="46.5" cy="24" rx="2.2" ry="1.4"
+           fill="rgba(255,255,255,0.35)"
+           transform="rotate(-25,46.5,24)"/>
 </svg>

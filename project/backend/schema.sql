@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS places (
   rating          TINYINT UNSIGNED NOT NULL DEFAULT 0,
   difficulty      TINYINT UNSIGNED NOT NULL DEFAULT 0,
   revisit         ENUM('ja','vielleicht','nein') NOT NULL DEFAULT 'vielleicht',
+  companions      VARCHAR(200) NOT NULL DEFAULT '',
   entry_cents     INT UNSIGNED NOT NULL DEFAULT 0,
   duration        VARCHAR(60)  NOT NULL DEFAULT '',
   note            TEXT,

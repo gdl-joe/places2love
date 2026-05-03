@@ -329,6 +329,7 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
           {place.duration && <Chip t={t}>⏱ {place.duration}</Chip>}
           {place.entry_cents > 0 && <Chip t={t}>🎟 {formatEuros(place.entry_cents)}</Chip>}
           {place.revisit && <Chip t={t}>{REVISIT_LABEL[place.revisit]}</Chip>}
+          {place.companions && <Chip t={t}>👥 {place.companions.split(',').map(s=>s.trim()).filter(Boolean).join(' · ')}</Chip>}
         </div>
 
         {place.difficulty > 0 && (
@@ -441,7 +442,9 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
 }
 
 // ─── ScreenForm ───────────────────────────────────────────────
-function ScreenForm({ t, editData, onSave, onBack }) {
+const COMPANIONS = ['Jochen', 'Karin', 'Franka'];
+
+function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
   const isEdit = !!editData;
   const [form, setForm] = React.useState({
     title:           editData?.title           || '',
@@ -454,6 +457,7 @@ function ScreenForm({ t, editData, onSave, onBack }) {
     rating:          editData?.rating          || 0,
     difficulty:      editData?.difficulty      || 0,
     revisit:         editData?.revisit         || 'vielleicht',
+    companions:      editData?.companions      || '',
     entry_euros:     editData ? (editData.entry_cents/100).toFixed(2) : '',
     duration:        editData?.duration        || '',
     note:            editData?.note            || '',
@@ -462,9 +466,10 @@ function ScreenForm({ t, editData, onSave, onBack }) {
     lat:             editData?.lat             || '',
     lng:             editData?.lng             || '',
   });
-  const [tagInput, setTagInput] = React.useState('');
-  const [busy,     setBusy]     = React.useState(false);
-  const [err,      setErr]      = React.useState('');
+  const [tagInput,      setTagInput]      = React.useState('');
+  const [pendingPhotos, setPendingPhotos] = React.useState([]);
+  const [busy,          setBusy]          = React.useState(false);
+  const [err,           setErr]           = React.useState('');
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -503,11 +508,22 @@ function ScreenForm({ t, editData, onSave, onBack }) {
     });
   }
 
+  function toggleCompanion(name) {
+    const list = form.companions ? form.companions.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    const next = list.includes(name) ? list.filter(n=>n!==name) : [...list, name];
+    set('companions', next.join(','));
+  }
+
   async function submit() {
     if (!form.title.trim()) { setErr('Name ist erforderlich'); return; }
     setBusy(true); setErr('');
     try {
-      await onSave(form, isEdit ? editData.id : null);
+      const placeId = await onSave(form, isEdit ? editData.id : null);
+      if (placeId && pendingPhotos.length > 0 && uploadPhoto) {
+        for (const file of pendingPhotos) {
+          await uploadPhoto(file, placeId);
+        }
+      }
       onBack();
     } catch {
       setErr('Fehler beim Speichern');
@@ -698,21 +714,95 @@ function ScreenForm({ t, editData, onSave, onBack }) {
           </button>
         </div>
 
+        {/* Dabei waren */}
+        <div style={{ marginBottom:14 }}>
+          <label style={labelStyle}>Dabei waren</label>
+          <div style={{ display:'flex', gap:10 }}>
+            {COMPANIONS.map(name => {
+              const checked = form.companions.split(',').map(s=>s.trim()).includes(name);
+              return (
+                <button key={name} onClick={()=>toggleCompanion(name)} style={{
+                  display:'flex', alignItems:'center', gap:7,
+                  background: checked ? t.accentSoft : t.bg3,
+                  border:`1px solid ${checked ? t.accent : t.border}`,
+                  borderRadius:9, padding:'9px 14px',
+                  color: checked ? t.accent : t.muted,
+                  fontSize:14, fontWeight:600, fontFamily:t.fontUI, cursor:'pointer',
+                }}>
+                  <span style={{
+                    width:18, height:18, borderRadius:4, flexShrink:0,
+                    border:`2px solid ${checked ? t.accent : t.muted}`,
+                    background: checked ? t.accent : 'none',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:11, color:'#fff',
+                  }}>{checked ? '✓' : ''}</span>
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Fotos */}
+        <div style={{ marginBottom:14 }}>
+          <label style={labelStyle}>Fotos</label>
+          {pendingPhotos.length > 0 && (
+            <div style={{ display:'flex', gap:8, overflowX:'auto', marginBottom:8 }}>
+              {pendingPhotos.map((file, i) => (
+                <div key={i} style={{ position:'relative', flexShrink:0 }}>
+                  <img src={URL.createObjectURL(file)}
+                       style={{ width:80, height:80, objectFit:'cover', borderRadius:8 }}/>
+                  <button onClick={()=>setPendingPhotos(ps=>ps.filter((_,j)=>j!==i))} style={{
+                    position:'absolute', top:2, right:2,
+                    background:'rgba(0,0,0,0.6)', borderRadius:999,
+                    width:18, height:18, display:'flex', alignItems:'center',
+                    justifyContent:'center', color:'#fff', fontSize:10, border:'none', cursor:'pointer',
+                  }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <label style={{
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            background:t.bg3, border:`1px dashed ${t.border}`, borderRadius:9,
+            color:t.muted, padding:'10px 16px', fontSize:13, fontFamily:t.fontUI, cursor:'pointer',
+          }}>
+            {Icon.photo(t.muted)} Fotos auswählen
+            <input type="file" accept="image/*" multiple style={{ display:'none' }}
+                   onChange={e=>setPendingPhotos(ps=>[...ps, ...Array.from(e.target.files||[])])}/>
+          </label>
+          {!isEdit && pendingPhotos.length > 0 && (
+            <div style={{ fontSize:11, color:t.muted, marginTop:5 }}>
+              {pendingPhotos.length} Foto{pendingPhotos.length>1?'s':''} werden nach dem Speichern hochgeladen
+            </div>
+          )}
+        </div>
+
+        {/* GPS-Koordinaten */}
         <div style={{ marginBottom:14 }}>
           <label style={labelStyle}>GPS-Koordinaten</label>
-          {(form.lat && form.lng) ? (
-            <div style={{ fontSize:13, color:t.muted, marginBottom:6 }}>
-              {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)}
+          <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:10, color:t.muted, marginBottom:3 }}>Breite (Lat)</div>
+              <input type="number" step="0.000001" value={form.lat}
+                     onChange={e=>set('lat', e.target.value)}
+                     placeholder="z.B. 47.5938"
+                     style={inputStyle}/>
             </div>
-          ) : (
-            <div style={{ fontSize:13, color:t.muted, marginBottom:6 }}>Keine Koordinaten</div>
-          )}
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:10, color:t.muted, marginBottom:3 }}>Länge (Lng)</div>
+              <input type="number" step="0.000001" value={form.lng}
+                     onChange={e=>set('lng', e.target.value)}
+                     placeholder="z.B. 11.0895"
+                     style={inputStyle}/>
+            </div>
+          </div>
           <button onClick={handleGPS} style={{
             width:'100%', background:t.bg3, border:`1px solid ${t.border}`, borderRadius:9,
             color:t.text, padding:'10px', fontSize:13, fontFamily:t.fontUI,
             display:'flex', alignItems:'center', justifyContent:'center', gap:6, cursor:'pointer',
           }}>
-            {Icon.gps(t.accent)} Aktueller Standort
+            {Icon.gps(t.accent)} Aktuellen Standort übernehmen
           </button>
         </div>
 
