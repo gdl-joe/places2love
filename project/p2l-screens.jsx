@@ -105,14 +105,16 @@ function ScreenLogin({ t, onAuth }) {
 
 // ─── PlaceCard ────────────────────────────────────────────────
 function PlaceCard({ p, t, onOpen }) {
-  const cat      = CATEGORY_MAP[p.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: place?.category || 'Ort' };
-  const gradient = CAT_GRADIENTS[p.category] || CAT_GRADIENTS.Stadtbild;
-  const photoUrl = p.cover ? `./uploads/${p.cover}` : null;
+  const cat       = CATEGORY_MAP[p.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: p.category || 'Ort' };
+  const gradient  = CAT_GRADIENTS[p.category] || CAT_GRADIENTS.Stadtbild;
+  const photoUrl  = p.cover ? `./uploads/${p.cover}` : null;
+  const isPlanned = (p.status || 'visited') === 'planned';
 
   return (
     <div onClick={onOpen} style={{
       background:t.bg2, borderRadius:12, marginBottom:10, overflow:'hidden',
       border:`1px solid ${t.border}`, cursor:'pointer', boxShadow:t.shadow,
+      borderLeft: isPlanned ? `4px solid ${PLAN_COLOR}` : `4px solid transparent`,
     }}>
       <div style={{
         height:90, position:'relative',
@@ -120,13 +122,13 @@ function PlaceCard({ p, t, onOpen }) {
       }}>
         <div style={{
           position:'absolute', top:8, left:8,
-          background:'rgba(0,0,0,0.45)', backdropFilter:'blur(4px)',
-          borderRadius:6, padding:'3px 8px',
+          background: isPlanned ? 'rgba(74,143,217,0.85)' : 'rgba(0,0,0,0.45)',
+          backdropFilter:'blur(4px)', borderRadius:6, padding:'3px 8px',
           fontSize:11, fontWeight:700, color:'#fff', letterSpacing:'0.05em',
         }}>
-          {cat.emoji} {cat.label}
+          {isPlanned ? `⬡ Geplant · ${cat.emoji} ${cat.label}` : `${cat.emoji} ${cat.label}`}
         </div>
-        {p.rating > 0 && (
+        {!isPlanned && p.rating > 0 && (
           <div style={{
             position:'absolute', bottom:8, right:8,
             background:'rgba(0,0,0,0.45)', backdropFilter:'blur(4px)',
@@ -143,7 +145,11 @@ function PlaceCard({ p, t, onOpen }) {
           <div style={{ fontSize:12, color:t.muted }}>
             {p.country_flag} {p.region ? `${p.region}, ` : ''}{p.country}
           </div>
-          <div style={{ fontSize:12, color:t.muted }}>{formatDate(p.visited_on)}</div>
+          <div style={{ fontSize:12, color: isPlanned ? PLAN_COLOR : t.muted }}>
+            {isPlanned
+              ? (p.visited_on ? `ab ${formatDate(p.visited_on)}` : 'Termin offen')
+              : formatDate(p.visited_on)}
+          </div>
         </div>
       </div>
     </div>
@@ -152,10 +158,13 @@ function PlaceCard({ p, t, onOpen }) {
 
 // ─── ScreenList ───────────────────────────────────────────────
 function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
-  const [search,    setSearch]    = React.useState('');
-  const [filterCat, setFilterCat] = React.useState('');
+  const [search,      setSearch]      = React.useState('');
+  const [filterCat,   setFilterCat]   = React.useState('');
+  const [statusFilter,setStatusFilter]= React.useState('visited');
 
   const filtered = places.filter(p => {
+    const st = p.status || 'visited';
+    if (statusFilter !== 'all' && st !== statusFilter) return false;
     if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
         !(p.region||'').toLowerCase().includes(search.toLowerCase()) &&
         !(p.country||'').toLowerCase().includes(search.toLowerCase())) return false;
@@ -163,14 +172,29 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
     return true;
   });
 
-  const sorted = [...filtered].sort((a,b) => b.visited_on.localeCompare(a.visited_on));
+  // Geplante: nach Titel sortiert; Besucht: nach Datum absteigend
+  const sorted = [...filtered].sort((a,b) => {
+    if (statusFilter === 'planned') return a.title.localeCompare(b.title, 'de');
+    const da = a.visited_on || '0000-00-00';
+    const db2 = b.visited_on || '0000-00-00';
+    return db2.localeCompare(da);
+  });
 
   const groups = {};
   const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   sorted.forEach(p => {
-    const d   = new Date(p.visited_on + 'T00:00:00');
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    if (!groups[key]) groups[key] = { label:`${MONTHS[d.getMonth()]} ${d.getFullYear()}`, items:[] };
+    const isPlanned = (p.status || 'visited') === 'planned';
+    let key, label;
+    if (isPlanned) {
+      key = '__planned__'; label = 'Geplante Besuche';
+    } else if (p.visited_on) {
+      const d = new Date(p.visited_on + 'T00:00:00');
+      key   = `${d.getFullYear()}-${d.getMonth()}`;
+      label = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    } else {
+      key = '__nodate__'; label = 'Ohne Datum';
+    }
+    if (!groups[key]) groups[key] = { label, items: [] };
     groups[key].items.push(p);
   });
 
@@ -194,6 +218,19 @@ function ScreenList({ t, places, loading, onOpen, onNew, pendingQ }) {
             display:'flex', alignItems:'center', justifyContent:'center',
           }}>{Icon.plus('#fff')}</button>
         </div>
+      </div>
+
+      {/* Status-Toggle: Besucht / Geplant / Beide */}
+      <div style={{ background:t.bg2, borderBottom:`1px solid ${t.border}`,
+                    padding:'8px 16px', display:'flex', gap:6 }}>
+        {[['visited','✓ Besucht'],['planned','⬡ Geplant'],['all','Beide']].map(([k,l]) => (
+          <button key={k} onClick={()=>setStatusFilter(k)} style={{
+            flex:1, padding:'7px 4px', borderRadius:8, border:'none', cursor:'pointer',
+            fontSize:12, fontWeight:600, fontFamily:t.fontUI,
+            background: statusFilter===k ? (k==='planned' ? PLAN_COLOR : t.accent) : t.bg3,
+            color: statusFilter===k ? '#fff' : t.muted,
+          }}>{l}</button>
+        ))}
       </div>
 
       <div style={{ background:t.bg2, borderBottom:`1px solid ${t.border}` }}>
@@ -286,9 +323,10 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
                   justifyContent:'center', color:t.muted }}>Lädt…</div>
   );
 
-  const cat      = CATEGORY_MAP[place.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: place?.category || 'Ort' };
-  const gradient = CAT_GRADIENTS[place.category] || CAT_GRADIENTS.Stadtbild;
-  const heroUrl  = place.photos?.[0] ? `${cfg.uploadUrl}/${place.photos[0].path}` : null;
+  const cat       = CATEGORY_MAP[place.category] || CATEGORY_MAP.Stadtbild || { emoji:'📍', label: place?.category || 'Ort' };
+  const gradient  = CAT_GRADIENTS[place.category] || CAT_GRADIENTS.Stadtbild;
+  const heroUrl   = place.photos?.[0] ? `${cfg.uploadUrl}/${place.photos[0].path}` : null;
+  const isPlanned = (place.status || 'visited') === 'planned';
 
   const REVISIT_LABEL = { ja:'✅ Ja, unbedingt!', vielleicht:'🤔 Vielleicht', nein:'❌ Nein' };
 
@@ -331,12 +369,28 @@ function ScreenDetail({ t, placeId, onBack, onEdit, onDelete, uploadPhoto, loadP
       </div>
 
       <div style={{ padding:'16px 16px 40px' }}>
+
+        {/* Jetzt besucht — nur für geplante Orte */}
+        {isPlanned && (
+          <button onClick={()=>onEdit({ ...place, status:'visited', visited_on: place.visited_on || new Date().toISOString().slice(0,10) })}
+                  style={{
+                    width:'100%', marginBottom:16, padding:'13px',
+                    background:t.accent, color:'#fff', border:'none',
+                    borderRadius:10, fontSize:15, fontWeight:600,
+                    fontFamily:t.fontUI, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  }}>
+            ✓ Jetzt besucht — Eintrag ausfüllen
+          </button>
+        )}
+
         <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+          {isPlanned && <Chip t={t} style={{ background: PLAN_COLOR, color:'#fff' }}>⬡ Geplanter Besuch</Chip>}
           {place.country && <Chip t={t}>{place.country_flag} {place.region ? `${place.region}, ` : ''}{place.country}</Chip>}
-          {place.visited_on && <Chip t={t}>📅 {formatDate(place.visited_on)}</Chip>}
+          {place.visited_on && <Chip t={t}>📅 {isPlanned ? `ab ${formatDate(place.visited_on)}` : formatDate(place.visited_on)}</Chip>}
           {place.duration && <Chip t={t}>⏱ {place.duration}</Chip>}
           {place.entry_cents > 0 && <Chip t={t}>🎟 {formatEuros(place.entry_cents)}</Chip>}
-          {place.revisit && <Chip t={t}>{REVISIT_LABEL[place.revisit]}</Chip>}
+          {!isPlanned && place.revisit && <Chip t={t}>{REVISIT_LABEL[place.revisit]}</Chip>}
           {place.companions && <Chip t={t}>👥 {place.companions.split(',').map(s=>s.trim()).filter(Boolean).join(' · ')}</Chip>}
         </div>
 
@@ -547,6 +601,7 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
     title:           editData?.title           || '',
     category:        editData?.category        || 'Berg',
     custom_category: editData?.custom_category || '',
+    status:          editData?.status          || 'visited',
     country:         editData?.country         || '',
     country_flag:    editData?.country_flag    || '',
     region:          editData?.region          || '',
@@ -724,6 +779,19 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
         }}>{busy?'…':'Speichern'}</button>
       </div>
 
+      {/* Status-Toggle */}
+      <div style={{ background:t.bg2, borderBottom:`1px solid ${t.border}`,
+                    padding:'8px 16px', display:'flex', gap:6 }}>
+        {[['visited','✓ Besucht'],['planned','⬡ Geplant']].map(([k,l]) => (
+          <button key={k} onClick={()=>set('status',k)} style={{
+            flex:1, padding:'8px', borderRadius:8, border:'none', cursor:'pointer',
+            fontSize:13, fontWeight:600, fontFamily:t.fontUI,
+            background: form.status===k ? (k==='planned' ? PLAN_COLOR : t.accent) : t.bg3,
+            color: form.status===k ? '#fff' : t.muted,
+          }}>{l}</button>
+        ))}
+      </div>
+
       <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 48px' }}>
         {err && <div style={{ color:'#e05050', fontSize:13, marginBottom:12 }}>{err}</div>}
 
@@ -745,34 +813,38 @@ function ScreenForm({ t, editData, onSave, onBack, uploadPhoto }) {
           </div>
         </div>
 
-        <div style={{ marginBottom:14, display:'flex', gap:24 }}>
-          <div>
-            <label style={labelStyle}>Bewertung</label>
-            <div style={{ display:'flex', gap:4 }}>
-              {[1,2,3,4,5].map(i => (
-                <button key={i} onClick={()=>set('rating',i===form.rating?0:i)}
-                        style={{ background:'none', padding:2, border:'none', cursor:'pointer' }}>
-                  {Icon.star(i<=form.rating?t.gold:t.border, 26, i<=form.rating?t.gold:'none')}
-                </button>
-              ))}
+        {form.status !== 'planned' && (
+          <div style={{ marginBottom:14, display:'flex', gap:24 }}>
+            <div>
+              <label style={labelStyle}>Bewertung</label>
+              <div style={{ display:'flex', gap:4 }}>
+                {[1,2,3,4,5].map(i => (
+                  <button key={i} onClick={()=>set('rating',i===form.rating?0:i)}
+                          style={{ background:'none', padding:2, border:'none', cursor:'pointer' }}>
+                    {Icon.star(i<=form.rating?t.gold:t.border, 26, i<=form.rating?t.gold:'none')}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Schwierigkeit</label>
+              <div style={{ display:'flex', gap:4 }}>
+                {[1,2,3,4,5].map(i => (
+                  <button key={i} onClick={()=>set('difficulty',i===form.difficulty?0:i)}
+                          style={{ background:'none', padding:2, border:'none', cursor:'pointer' }}>
+                    {Icon.dot(i<=form.difficulty, t.accent, 26)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div>
-            <label style={labelStyle}>Schwierigkeit</label>
-            <div style={{ display:'flex', gap:4 }}>
-              {[1,2,3,4,5].map(i => (
-                <button key={i} onClick={()=>set('difficulty',i===form.difficulty?0:i)}
-                        style={{ background:'none', padding:2, border:'none', cursor:'pointer' }}>
-                  {Icon.dot(i<=form.difficulty, t.accent, 26)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
 
         <div style={{ marginBottom:14 }}>
-          <label style={labelStyle}>Besuchsdatum</label>
-          <input type="date" value={form.visited_on} onChange={e=>set('visited_on',e.target.value)} style={inputStyle}/>
+          <label style={labelStyle}>
+            {form.status === 'planned' ? 'Geplantes Datum (optional)' : 'Besuchsdatum'}
+          </label>
+          <input type="date" value={form.visited_on||''} onChange={e=>set('visited_on',e.target.value)} style={inputStyle}/>
         </div>
 
         <div style={{ marginBottom:14, display:'flex', gap:10 }}>

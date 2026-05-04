@@ -86,6 +86,9 @@ const CAT_GRADIENTS = {
   Stadtbild:     'linear-gradient(160deg,#1a1a2a 0%,#2a2a4a 60%,#5a5a7a 100%)',
 };
 
+// ─── Geplante Orte — Akzentfarbe ─────────────────────────────
+const PLAN_COLOR = '#4a8fd9';
+
 // ─── Theme-Tokens ─────────────────────────────────────────────
 const THEMES = {
   dark: {

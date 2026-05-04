@@ -72,9 +72,11 @@ function ScreenMap({ t, places, onOpen }) {
     const withGPS = places.filter(p => p.lat && p.lng);
 
     withGPS.forEach(p => {
-      const cat = CATEGORY_MAP[p.category] || { emoji: '📍', label: p.category || 'Ort' };
+      const cat       = CATEGORY_MAP[p.category] || { emoji: '📍', label: p.category || 'Ort' };
+      const isPlanned = (p.status || 'visited') === 'planned';
+      const pinColor  = isPlanned ? PLAN_COLOR : t.accent;
       const pinHtml = `<div style="
-        background:${t.accent};
+        background:${pinColor};
         border:2px solid #fff;
         border-radius:50% 50% 50% 0;
         width:28px;height:28px;

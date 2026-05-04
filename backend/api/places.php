@@ -54,9 +54,10 @@ if ($method === 'POST') {
   $stmt = $db->prepare(
     "INSERT INTO places
        (user_id, title, category, custom_category, country, country_flag, region,
-        lat, lng, visited_on, rating, difficulty, revisit, companions, entry_cents, duration, note)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        lat, lng, visited_on, status, rating, difficulty, revisit, companions, entry_cents, duration, note)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   );
+  $status = in_array($b['status'] ?? 'visited', ['visited','planned'], true) ? $b['status'] : 'visited';
   $stmt->execute([
     $uid,
     $b['title']           ?? '',
@@ -67,7 +68,8 @@ if ($method === 'POST') {
     $b['region']          ?? '',
     isset($b['lat']) && $b['lat'] !== '' ? (float)$b['lat'] : null,
     isset($b['lng']) && $b['lng'] !== '' ? (float)$b['lng'] : null,
-    $b['visited_on']      ?? date('Y-m-d'),
+    isset($b['visited_on']) && $b['visited_on'] !== '' ? $b['visited_on'] : null,
+    $status,
     (int)($b['rating']    ?? 0),
     (int)($b['difficulty']?? 0),
     $b['revisit']         ?? 'vielleicht',
@@ -90,9 +92,11 @@ if ($method === 'PUT' && $id) {
 
   $b = bodyJson();
   $db->prepare(
+  $status2 = in_array($b['status'] ?? 'visited', ['visited','planned'], true) ? $b['status'] : 'visited';
+  $db->prepare(
     "UPDATE places SET
        title=?, category=?, custom_category=?, country=?, country_flag=?, region=?,
-       lat=?, lng=?, visited_on=?, rating=?, difficulty=?, revisit=?, companions=?,
+       lat=?, lng=?, visited_on=?, status=?, rating=?, difficulty=?, revisit=?, companions=?,
        entry_cents=?, duration=?, note=?
      WHERE id = ?"
   )->execute([
@@ -104,7 +108,8 @@ if ($method === 'PUT' && $id) {
     $b['region']          ?? '',
     isset($b['lat']) && $b['lat'] !== '' ? (float)$b['lat'] : null,
     isset($b['lng']) && $b['lng'] !== '' ? (float)$b['lng'] : null,
-    $b['visited_on']      ?? date('Y-m-d'),
+    isset($b['visited_on']) && $b['visited_on'] !== '' ? $b['visited_on'] : null,
+    $status2,
     (int)($b['rating']    ?? 0),
     (int)($b['difficulty']?? 0),
     $b['revisit']         ?? 'vielleicht',
