@@ -91,7 +91,6 @@ if ($method === 'PUT' && $id) {
   if (!$chk->fetch()) jsonOut(['error' => 'Not found'], 404);
 
   $b = bodyJson();
-  $db->prepare(
   $status2 = in_array($b['status'] ?? 'visited', ['visited','planned'], true) ? $b['status'] : 'visited';
   $db->prepare(
     "UPDATE places SET
